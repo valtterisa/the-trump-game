@@ -414,6 +414,14 @@ const GameCanvas: React.FC = () => {
   return (
     <div className="relative w-full h-screen bg-gray-900 flex justify-center items-center">
       <canvas ref={canvasRef} className="w-full h-full border border-white" />
+      {/* <button
+        className="absolute bottom-4 right-4 px-4 py-2 bg-blue-600 text-white rounded"
+        onClick={() =>
+          window.dispatchEvent(new KeyboardEvent("keydown", { key: " " }))
+        }
+      >
+        Shoot
+      </button> */}
       {gameOver && (
         <div className="absolute inset-0 flex flex-col justify-center items-center bg-black bg-opacity-80">
           <h1 className="text-3xl md:text-5xl font-bold text-white mb-4">
