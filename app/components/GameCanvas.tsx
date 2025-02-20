@@ -20,9 +20,64 @@ interface Enemy extends MovingObject {
   dy: number;
 }
 
+interface JoystickProps {
+  onMove: (dx: number, dy: number) => void;
+  onStop: () => void;
+}
+
+const Joystick: React.FC<JoystickProps> = ({ onMove, onStop }) => {
+  const joystickRef = useRef<HTMLDivElement | null>(null);
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    e.preventDefault();
+    if (!joystickRef.current) return;
+    const rect = joystickRef.current.getBoundingClientRect();
+    const touch = e.touches[0];
+    const dx = touch.clientX - (rect.left + rect.width / 2);
+    const dy = touch.clientY - (rect.top + rect.height / 2);
+    onMove(dx, dy);
+  };
+
+  const handleTouchEnd = () => {
+    onStop();
+  };
+
+  return (
+    <div
+      ref={joystickRef}
+      className="w-16 h-16 bg-gray-700 rounded-full opacity-75"
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Optionally, add a smaller inner knob */}
+    </div>
+  );
+};
+
+interface MobileControlsProps {
+  onShoot: () => void;
+  onMove: (dx: number, dy: number) => void;
+  onStop: () => void;
+}
+
+const MobileControls: React.FC<MobileControlsProps> = ({ onShoot, onMove, onStop }) => {
+  return (
+    <div className="absolute bottom-4 right-4 flex flex-col space-y-2 md:hidden">
+      <Joystick onMove={onMove} onStop={onStop} />
+      <button
+        onClick={onShoot}
+        className="px-2 py-1 bg-blue-600 text-white rounded text-sm"
+      >
+        Shoot
+      </button>
+    </div>
+  );
+};
+
 const GameCanvas: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [gameOver, setGameOver] = useState(false);
+  const [joystick, setJoystick] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -163,13 +218,13 @@ const GameCanvas: React.FC = () => {
 
     // Spawning timers.
     let lastEnemySpawn = 0;
-    const enemySpawnInterval = 500; // 1 second.
+    const enemySpawnInterval = 500; // spawn more frequently
     let lastPutinSpawn = 0;
     const putinSpawnInterval = 10000;
     let lastElonSpawn = 0;
     const elonSpawnInterval = 15000;
 
-    // For continuous movement and shooting.
+    // For continuous movement and shooting via keyboard.
     const pressedKeys: { [key: string]: boolean } = {};
     let lastBulletFired = 0;
     const bulletInterval = 300;
@@ -219,6 +274,7 @@ const GameCanvas: React.FC = () => {
       }
 
       const moveSpeed = 10;
+      // Keyboard movement.
       if (pressedKeys["ArrowUp"] || pressedKeys["w"]) {
         trump.y = Math.max(trump.y - moveSpeed, 0);
       }
@@ -231,12 +287,28 @@ const GameCanvas: React.FC = () => {
       if (pressedKeys["ArrowRight"] || pressedKeys["d"]) {
         trump.x = Math.min(trump.x + moveSpeed, canvasWidth - trump.width);
       }
+      // Joystick movement.
+      if (joystick.x !== 0 || joystick.y !== 0) {
+        const mag = Math.sqrt(joystick.x * joystick.x + joystick.y * joystick.y);
+        if (mag > 0) {
+          const normX = joystick.x / mag;
+          const normY = joystick.y / mag;
+          trump.x = Math.min(
+            Math.max(trump.x + normX * moveSpeed, 0),
+            canvasWidth - trump.width
+          );
+          trump.y = Math.min(
+            Math.max(trump.y + normY * moveSpeed, 0),
+            canvasHeight - trump.height
+          );
+        }
+      }
 
       if (pressedKeys[" "]) {
         if (timestamp - lastBulletFired > bulletInterval) {
           const bulletSize = 15 * scale;
           if (weaponBoost) {
-            // Fire triple cannon shot.
+            // Triple cannon shot.
             bullets.push({
               x: trump.x + trump.width / 2 - bulletSize / 2,
               y: trump.y,
@@ -305,9 +377,7 @@ const GameCanvas: React.FC = () => {
       });
 
       if (putin && isColliding(trump, putin)) {
-        if (trump.health < 100) {
-          trump.health += 20;
-        }
+        if (trump.health < 100) trump.health += 20;
         putin = null;
       }
       if (elon && isColliding(trump, elon)) {
@@ -333,14 +403,7 @@ const GameCanvas: React.FC = () => {
       ctx.drawImage(trumpImg, trump.x, trump.y, trump.width, trump.height);
       // Draw enemies as round images.
       enemies.forEach((enemy) => {
-        drawCircularImage(
-          ctx,
-          enemy.img,
-          enemy.x,
-          enemy.y,
-          enemy.width,
-          enemy.height
-        );
+        drawCircularImage(ctx, enemy.img, enemy.x, enemy.y, enemy.width, enemy.height);
       });
       // Draw bullets as yellow circles.
       bullets.forEach((bullet) => {
@@ -354,24 +417,10 @@ const GameCanvas: React.FC = () => {
       });
       // Draw markers as round images.
       if (putin) {
-        drawCircularImage(
-          ctx,
-          putinImg,
-          putin.x,
-          putin.y,
-          putin.width,
-          putin.height
-        );
+        drawCircularImage(ctx, putinImg, putin.x, putin.y, putin.width, putin.height);
       }
       if (elon) {
-        drawCircularImage(
-          ctx,
-          elonImg,
-          elon.x,
-          elon.y,
-          elon.width,
-          elon.height
-        );
+        drawCircularImage(ctx, elonImg, elon.x, elon.y, elon.width, elon.height);
       }
       // Draw HUD in bottom left.
       const margin = 20;
@@ -381,12 +430,7 @@ const GameCanvas: React.FC = () => {
       ctx.textAlign = "start";
       ctx.fillText("Score: " + score, margin, hudBottom - 110);
       ctx.fillText("Health: " + trump.health, margin, hudBottom - 90);
-      ctx.fillText(
-        "Weapon Boost: " + (weaponBoost ? "Active" : "Inactive"),
-        margin,
-        hudBottom - 70
-      );
-      // Draw health bar.
+      ctx.fillText("Weapon Boost: " + (weaponBoost ? "Active" : "Inactive"), margin, hudBottom - 70);
       const barWidth = 300;
       const barHeight = 25;
       const healthPercent = Math.max(trump.health / 100, 0);
@@ -397,11 +441,7 @@ const GameCanvas: React.FC = () => {
       ctx.strokeStyle = "white";
       ctx.strokeRect(margin, hudBottom - 60, barWidth, barHeight);
       // Draw control keys at the very bottom.
-      ctx.fillText(
-        "Controls: Arrow keys / WASD to move, Space to shoot",
-        margin,
-        hudBottom
-      );
+      ctx.fillText("Controls: Arrow keys / WASD to move, Space to shoot", margin, hudBottom - 20);
     };
 
     const animId = requestAnimationFrame(update);
@@ -411,27 +451,38 @@ const GameCanvas: React.FC = () => {
       window.removeEventListener("keyup", handleKeyUp);
       cancelAnimationFrame(animId);
     };
-  }, []);
+  }, [joystick]);
+
+  // Mobile-specific callbacks.
+  const handleShoot = () => {
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: " " }));
+  };
+
+  const handleJoystickMove = (dx: number, dy: number) => {
+    setJoystick({ x: dx, y: dy });
+  };
+
+  const handleJoystickStop = () => {
+    setJoystick({ x: 0, y: 0 });
+  };
 
   return (
     <div className="relative w-full h-screen bg-gray-900 flex justify-center items-center">
       <canvas ref={canvasRef} className="w-full h-full border border-white" />
-      {/* <button
-        className="absolute bottom-4 right-4 px-4 py-2 bg-blue-600 text-white rounded"
-        onClick={() =>
-          window.dispatchEvent(new KeyboardEvent("keydown", { key: " " }))
-        }
-      >
-        Shoot
-      </button> */}
+      <div className="md:hidden">
+        <MobileControls
+          onShoot={handleShoot}
+          onMove={handleJoystickMove}
+          onStop={handleJoystickStop}
+        />
+      </div>
       {gameOver && (
         <div className="absolute inset-0 flex flex-col justify-center items-center bg-black bg-opacity-80">
-          <h1 className="text-3xl md:text-5xl font-bold text-white mb-4">
-            Game Over
-          </h1>
+          <h1 className="text-3xl md:text-5xl font-bold text-white mb-4">Game Over</h1>
           <video
             src="/videos/ai-trump.mp4"
             autoPlay
+            muted
             className="max-w-full max-h-full"
           />
           <button
