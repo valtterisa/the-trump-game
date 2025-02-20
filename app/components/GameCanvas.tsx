@@ -30,8 +30,8 @@ const GameCanvas: React.FC = () => {
 
     // Canvas sizing (untouched):
     const isMobile = window.innerWidth < 600;
-    const canvasWidth = isMobile ? 400 : window.innerWidth;
-    const canvasHeight = isMobile ? 300 : window.innerHeight;
+    const canvasWidth = window.innerWidth;
+    const canvasHeight = window.innerHeight;
     canvas.width = canvasWidth;
     canvas.height = canvasHeight;
 
@@ -122,8 +122,8 @@ const GameCanvas: React.FC = () => {
 
     // Enemies spawn only from the top.
     const spawnEnemy = () => {
-      const enemyWidth = 100 * scale;
-      const enemyHeight = 100 * scale;
+      const enemyWidth = 120 * scale;
+      const enemyHeight = 120 * scale;
       const x = Math.random() * (canvasWidth - enemyWidth);
       const y = -enemyHeight;
       const speed = 3 + Math.random() * 2;
@@ -142,7 +142,7 @@ const GameCanvas: React.FC = () => {
 
     // Markers as round images.
     const spawnPutin = () => {
-      const size = 60 * scale;
+      const size = 80 * scale;
       putin = {
         x: Math.random() * (canvasWidth - size),
         y: Math.random() * (canvasHeight - size),
@@ -152,7 +152,7 @@ const GameCanvas: React.FC = () => {
     };
 
     const spawnElon = () => {
-      const size = 60 * scale;
+      const size = 80 * scale;
       elon = {
         x: Math.random() * (canvasWidth - size),
         y: Math.random() * (canvasHeight - size),
@@ -400,7 +400,7 @@ const GameCanvas: React.FC = () => {
       ctx.fillText(
         "Controls: Arrow keys / WASD to move, Space to shoot",
         margin,
-        hudBottom - 20
+        hudBottom
       );
     };
 

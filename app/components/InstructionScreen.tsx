@@ -27,6 +27,9 @@ const InstructionScreen: React.FC<InstructionScreenProps> = ({ onStart }) => {
       >
         Start Game
       </button>
+      <footer className="absolute bottom-2">
+        <p>Made with ❤️ by <a className="hover:underline" href="https://bittive.com" target={"/blank"}>Bittive</a></p>
+      </footer>
     </div>
   );
 };
