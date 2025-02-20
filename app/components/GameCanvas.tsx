@@ -163,7 +163,7 @@ const GameCanvas: React.FC = () => {
 
     // Spawning timers.
     let lastEnemySpawn = 0;
-    const enemySpawnInterval = 1000; // 1 second.
+    const enemySpawnInterval = 500; // 1 second.
     let lastPutinSpawn = 0;
     const putinSpawnInterval = 10000;
     let lastElonSpawn = 0;
@@ -305,7 +305,9 @@ const GameCanvas: React.FC = () => {
       });
 
       if (putin && isColliding(trump, putin)) {
-        trump.health += 20;
+        if (trump.health < 100) {
+          trump.health += 20;
+        }
         putin = null;
       }
       if (elon && isColliding(trump, elon)) {
