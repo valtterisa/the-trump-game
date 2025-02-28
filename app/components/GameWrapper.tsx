@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import InstructionScreen from "./InstructionScreen";
-import GameCanvas from "./GameCanvas";
+import GameContainer from "./GameContainer";
 
 export default function GameWrapper() {
   const [gameStarted, setGameStarted] = useState(false);
@@ -13,7 +13,7 @@ export default function GameWrapper() {
 
   return (
     <div style={{ textAlign: "center" }}>
-      <GameCanvas />
+      <GameContainer />
     </div>
   );
 }

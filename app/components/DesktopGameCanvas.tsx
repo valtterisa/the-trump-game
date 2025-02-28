@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useRef, useEffect, useState } from "react";
-import nipplejs from "nipplejs";
 
 interface GameObject {
   x: number;
@@ -21,108 +20,61 @@ interface Enemy extends MovingObject {
   dy: number;
 }
 
-interface JoystickProps {
-  onMove: (dx: number, dy: number) => void;
-  onStop: () => void;
-}
-
-const Joystick: React.FC<JoystickProps> = ({ onMove, onStop }) => {
-  const joystickRef = useRef<HTMLDivElement | null>(null);
-  const nippleRef = useRef<any>(null);
-
-  useEffect(() => {
-    if (joystickRef.current) {
-      nippleRef.current = nipplejs.create({
-        zone: joystickRef.current,
-        mode: "static",
-        position: { left: "50%", top: "50%" },
-        color: "blue",
-        size: 100,
-      });
-
-      nippleRef.current.on("move", (evt, data) => {
-        if (data && data.vector) {
-          onMove(data.vector.x, data.vector.y);
-        }
-      });
-
-      nippleRef.current.on("end", () => {
-        onStop();
-      });
-    }
-
-    return () => {
-      if (nippleRef.current) {
-        nippleRef.current.destroy();
-      }
-    };
-  }, [onMove, onStop]);
-
-  return (
-    <div
-      ref={joystickRef}
-      className="w-32 h-32 relative"
-      // No manual touch event handlers needed—nipplejs handles them.
-    ></div>
-  );
+const drawCircularImage = (
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number,
+  y: number,
+  width: number,
+  height: number
+) => {
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(x + width / 2, y + height / 2, width / 2, 0, Math.PI * 2);
+  ctx.closePath();
+  ctx.clip();
+  ctx.drawImage(img, x, y, width, height);
+  ctx.restore();
 };
 
-interface MobileControlsProps {
-  onShoot: () => void;
-  onMove: (dx: number, dy: number) => void;
-  onStop: () => void;
-}
-
-const MobileControls: React.FC<MobileControlsProps> = ({
-  onShoot,
-  onMove,
-  onStop,
-}) => {
-  return (
-    <div className="absolute bottom-4 right-4 flex flex-col space-y-2 md:hidden">
-      <Joystick onMove={onMove} onStop={onStop} />
-      <button
-        onClick={onShoot}
-        className="px-2 py-1 bg-blue-600 text-white rounded text-sm"
-      >
-        Shoot
-      </button>
-    </div>
-  );
+const drawCircle = (
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  radius: number,
+  color: string
+) => {
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
 };
 
-const GameCanvas: React.FC = () => {
+export const DesktopGameCanvas: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [gameOver, setGameOver] = useState(false);
-  const [joystick, setJoystick] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
     const canvas = canvasRef.current;
     if (!canvas) return;
-
-    // Canvas sizing:
-    const isMobile = window.innerWidth < 600;
     const canvasWidth = window.innerWidth;
     const canvasHeight = window.innerHeight;
     canvas.width = canvasWidth;
     canvas.height = canvasHeight;
-
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Scale factor: 1 on desktop, 0.5 on mobile.
-    const scale = isMobile ? 0.5 : 1;
+    // Desktop scale factor
+    const scale = 1;
 
     // Preload images.
     const trumpImg = new Image();
     trumpImg.src = "/images/trump.jpg";
-
     const putinImg = new Image();
     putinImg.src = "/images/putin.jpg";
-
     const elonImg = new Image();
     elonImg.src = "/images/elon.webp";
-
     const agencyImagePaths = [
       "/images/fbi.svg",
       "/images/irs.png",
@@ -136,47 +88,14 @@ const GameCanvas: React.FC = () => {
       return img;
     });
 
-    // Helper: Draw an image clipped to a circle.
-    const drawCircularImage = (
-      ctx: CanvasRenderingContext2D,
-      img: HTMLImageElement,
-      x: number,
-      y: number,
-      width: number,
-      height: number
-    ) => {
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(x + width / 2, y + height / 2, width / 2, 0, Math.PI * 2);
-      ctx.closePath();
-      ctx.clip();
-      ctx.drawImage(img, x, y, width, height);
-      ctx.restore();
-    };
-
-    // Helper: Draw a filled circle.
-    const drawCircle = (
-      ctx: CanvasRenderingContext2D,
-      cx: number,
-      cy: number,
-      radius: number,
-      color: string
-    ) => {
-      ctx.beginPath();
-      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-      ctx.fillStyle = color;
-      ctx.fill();
-    };
-
-    // Game state – Trump remains rectangular.
+    // Game state.
     const trump: GameObject & { health: number } = {
-      x: canvasWidth / 2 - (100 * scale) / 2,
-      y: canvasHeight / 2 - (100 * scale) / 2,
-      width: 100 * scale,
-      height: 100 * scale,
+      x: canvasWidth / 2 - 50,
+      y: canvasHeight / 2 - 50,
+      width: 100,
+      height: 100,
       health: 100,
     };
-
     const bullets: MovingObject[] = [];
     const enemies: Enemy[] = [];
     let putin: GameObject | null = null;
@@ -192,10 +111,10 @@ const GameCanvas: React.FC = () => {
       a.y < b.y + b.height &&
       a.y + a.height > b.y;
 
-    // Enemies spawn only from the top.
+    // Spawn functions.
     const spawnEnemy = () => {
-      const enemyWidth = 120 * scale;
-      const enemyHeight = 120 * scale;
+      const enemyWidth = 120;
+      const enemyHeight = 120;
       const x = Math.random() * (canvasWidth - enemyWidth);
       const y = -enemyHeight;
       const speed = 3 + Math.random() * 2;
@@ -212,9 +131,8 @@ const GameCanvas: React.FC = () => {
       enemies.push(enemy);
     };
 
-    // Markers as round images.
     const spawnPutin = () => {
-      const size = 80 * scale;
+      const size = 80;
       putin = {
         x: Math.random() * (canvasWidth - size),
         y: Math.random() * (canvasHeight - size),
@@ -224,7 +142,7 @@ const GameCanvas: React.FC = () => {
     };
 
     const spawnElon = () => {
-      const size = 80 * scale;
+      const size = 80;
       elon = {
         x: Math.random() * (canvasWidth - size),
         y: Math.random() * (canvasHeight - size),
@@ -233,15 +151,13 @@ const GameCanvas: React.FC = () => {
       };
     };
 
-    // Spawning timers.
+    // Timers and keyboard controls.
     let lastEnemySpawn = 0;
     const enemySpawnInterval = 500;
     let lastPutinSpawn = 0;
     const putinSpawnInterval = 10000;
     let lastElonSpawn = 0;
     const elonSpawnInterval = 15000;
-
-    // For continuous movement and shooting via keyboard.
     const pressedKeys: { [key: string]: boolean } = {};
     let lastBulletFired = 0;
     const bulletInterval = 300;
@@ -261,11 +177,9 @@ const GameCanvas: React.FC = () => {
       if (keysToPrevent.includes(e.key)) e.preventDefault();
       pressedKeys[e.key] = true;
     };
-
     const handleKeyUp = (e: KeyboardEvent) => {
       pressedKeys[e.key] = false;
     };
-
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
 
@@ -276,7 +190,6 @@ const GameCanvas: React.FC = () => {
         draw();
         return;
       }
-
       if (timestamp - lastEnemySpawn > enemySpawnInterval) {
         spawnEnemy();
         lastEnemySpawn = timestamp;
@@ -289,9 +202,7 @@ const GameCanvas: React.FC = () => {
         spawnElon();
         lastElonSpawn = timestamp;
       }
-
       const moveSpeed = 10;
-      // Keyboard movement.
       if (pressedKeys["ArrowUp"] || pressedKeys["w"]) {
         trump.y = Math.max(trump.y - moveSpeed, 0);
       }
@@ -304,28 +215,10 @@ const GameCanvas: React.FC = () => {
       if (pressedKeys["ArrowRight"] || pressedKeys["d"]) {
         trump.x = Math.min(trump.x + moveSpeed, canvasWidth - trump.width);
       }
-      // Joystick movement.
-      if (joystick.x !== 0 || joystick.y !== 0) {
-        const mag = Math.sqrt(joystick.x ** 2 + joystick.y ** 2);
-        if (mag > 0) {
-          const normX = joystick.x / mag;
-          const normY = joystick.y / mag;
-          trump.x = Math.min(
-            Math.max(trump.x + normX * moveSpeed, 0),
-            canvasWidth - trump.width
-          );
-          trump.y = Math.min(
-            Math.max(trump.y + normY * moveSpeed, 0),
-            canvasHeight - trump.height
-          );
-        }
-      }
-
       if (pressedKeys[" "]) {
         if (timestamp - lastBulletFired > bulletInterval) {
-          const bulletSize = 15 * scale;
+          const bulletSize = 15;
           if (weaponBoost) {
-            // Triple cannon shot.
             bullets.push({
               x: trump.x + trump.width / 2 - bulletSize / 2,
               y: trump.y,
@@ -363,7 +256,6 @@ const GameCanvas: React.FC = () => {
           lastBulletFired = timestamp;
         }
       }
-
       enemies.forEach((enemy, index) => {
         enemy.y += enemy.dy;
         if (isColliding(trump, enemy)) {
@@ -371,7 +263,6 @@ const GameCanvas: React.FC = () => {
           enemies.splice(index, 1);
         }
       });
-
       bullets.forEach((bullet, bIndex) => {
         bullet.x += bullet.dx || 0;
         bullet.y -= bullet.speed || 0;
@@ -392,7 +283,6 @@ const GameCanvas: React.FC = () => {
           });
         }
       });
-
       if (putin && isColliding(trump, putin)) {
         if (trump.health < 100) trump.health += 20;
         putin = null;
@@ -409,7 +299,6 @@ const GameCanvas: React.FC = () => {
           boostTimer = 0;
         }
       }
-
       draw();
       animationFrameId = requestAnimationFrame(update);
     };
@@ -456,71 +345,26 @@ const GameCanvas: React.FC = () => {
           elon.height
         );
       }
-      const margin = 20;
-      const hudBottom = canvasHeight - margin;
       ctx.fillStyle = "white";
       ctx.font = "20px Arial";
-      ctx.textAlign = "start";
-      ctx.fillText("Score: " + score, margin, hudBottom - 110);
-      ctx.fillText("Health: " + trump.health, margin, hudBottom - 90);
-      ctx.fillText(
-        "Weapon Boost: " + (weaponBoost ? "Active" : "Inactive"),
-        margin,
-        hudBottom - 70
-      );
-      const barWidth = 300;
-      const barHeight = 25;
-      const healthPercent = Math.max(trump.health / 100, 0);
-      ctx.fillStyle = "red";
-      ctx.fillRect(margin, hudBottom - 60, barWidth, barHeight);
-      ctx.fillStyle = "green";
-      ctx.fillRect(margin, hudBottom - 60, barWidth * healthPercent, barHeight);
-      ctx.strokeStyle = "white";
-      ctx.strokeRect(margin, hudBottom - 60, barWidth, barHeight);
-      ctx.fillText(
-        "Controls: Arrow keys / WASD to move, Space to shoot",
-        margin,
-        hudBottom - 20
-      );
+      ctx.fillText("Score: " + score, 20, canvasHeight - 110);
+      ctx.fillText("Health: " + trump.health, 20, canvasHeight - 90);
     };
 
     const animId = requestAnimationFrame(update);
-
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
       cancelAnimationFrame(animId);
     };
-  }, [joystick]);
-
-  // Mobile-specific callbacks.
-  const handleShoot = () => {
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: " " }));
-  };
-
-  const handleJoystickMove = (dx: number, dy: number) => {
-    setJoystick({ x: dx, y: dy });
-  };
-
-  const handleJoystickStop = () => {
-    setJoystick({ x: 0, y: 0 });
-  };
+  }, []);
 
   return (
-    <div className="relative w-full h-screen bg-gray-900 flex justify-center items-center">
+    <div className="relative w-full h-screen bg-gray-900">
       <canvas ref={canvasRef} className="w-full h-full border border-white" />
-      <div className="md:hidden">
-        <MobileControls
-          onShoot={handleShoot}
-          onMove={handleJoystickMove}
-          onStop={handleJoystickStop}
-        />
-      </div>
       {gameOver && (
         <div className="absolute inset-0 flex flex-col justify-center items-center bg-black bg-opacity-80">
-          <h1 className="text-3xl md:text-5xl font-bold text-white mb-4">
-            Game Over
-          </h1>
+          <h1 className="text-3xl font-bold text-white mb-4">Game Over</h1>
           <video
             src="/videos/ai-trump.mp4"
             autoPlay
@@ -538,5 +382,3 @@ const GameCanvas: React.FC = () => {
     </div>
   );
 };
-
-export default GameCanvas;
