@@ -12,7 +12,7 @@ export default function GameWrapper() {
   }
 
   return (
-    <div style={{ textAlign: "center" }}>
+    <div>
       <GameContainer />
     </div>
   );

@@ -8,7 +8,7 @@ interface InstructionScreenProps {
 
 const InstructionScreen: React.FC<InstructionScreenProps> = ({ onStart }) => {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gray-900 text-white">
+    <div className="flex flex-col items-center justify-center h-screen p-4 bg-gray-900 text-white">
       <h1 className="text-3xl md:text-5xl font-bold mb-1 text-center">
         Trump Game
       </h1>
@@ -28,7 +28,16 @@ const InstructionScreen: React.FC<InstructionScreenProps> = ({ onStart }) => {
         Start Game
       </button>
       <footer className="absolute bottom-2">
-        <p>Made with ❤️ by <a className="hover:underline" href="https://bittive.com" target={"/blank"}>Bittive</a></p>
+        <p>
+          Made with ❤️ by{" "}
+          <a
+            className="hover:underline"
+            href="https://bittive.com"
+            target={"/blank"}
+          >
+            Bittive
+          </a>
+        </p>
       </footer>
     </div>
   );
