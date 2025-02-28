@@ -54,29 +54,39 @@ const drawCircle = (
 export const MobileGameCanvas: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [gameOver, setGameOver] = useState(false);
-  const [joystick, setJoystick] = useState({ x: 0, y: 0 });
+  // Use a ref for joystick so that the effect isn't re-run on every joystick change.
+  const joystickRef = useRef({ x: 0, y: 0 });
 
-  // Mobile callbacks.
   const handleShoot = () => {
     if (typeof window !== "undefined") {
       window.dispatchEvent(new KeyboardEvent("keydown", { key: " " }));
     }
   };
+
   const handleJoystickMove = (dx: number, dy: number) => {
-    setJoystick({ x: dx, y: dy });
+    joystickRef.current = { x: dx, y: dy };
   };
+
   const handleJoystickStop = () => {
-    setJoystick({ x: 0, y: 0 });
+    joystickRef.current = { x: 0, y: 0 };
   };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const canvasWidth = window.innerWidth;
-    const canvasHeight = window.innerHeight;
-    canvas.width = canvasWidth;
-    canvas.height = canvasHeight;
+
+    // Function to set the canvas size
+    const setCanvasSize = () => {
+      const canvasWidth = window.innerWidth;
+      const canvasHeight = window.innerHeight;
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
+    };
+
+    setCanvasSize();
+    window.addEventListener("resize", setCanvasSize);
+
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
@@ -103,6 +113,8 @@ export const MobileGameCanvas: React.FC = () => {
     });
 
     // Game state.
+    const canvasWidth = canvas.width;
+    const canvasHeight = canvas.height;
     const trump: GameObject & { health: number } = {
       x: canvasWidth / 2 - (100 * scale) / 2,
       y: canvasHeight / 2 - (100 * scale) / 2,
@@ -215,11 +227,12 @@ export const MobileGameCanvas: React.FC = () => {
         lastElonSpawn = timestamp;
       }
       const moveSpeed = 10;
-      if (joystick.x !== 0 || joystick.y !== 0) {
-        const mag = Math.sqrt(joystick.x ** 2 + joystick.y ** 2);
+      const { x: joyX, y: joyY } = joystickRef.current;
+      if (joyX !== 0 || joyY !== 0) {
+        const mag = Math.sqrt(joyX ** 2 + joyY ** 2);
         if (mag > 0) {
-          const normX = joystick.x / mag;
-          const normY = joystick.y / mag;
+          const normX = joyX / mag;
+          const normY = joyY / mag;
           trump.x = Math.min(
             Math.max(trump.x + normX * moveSpeed, 0),
             canvasWidth - trump.width
@@ -366,16 +379,17 @@ export const MobileGameCanvas: React.FC = () => {
       ctx.fillText("Health: " + trump.health, 20, canvasHeight - 90);
     };
 
-    const animId = requestAnimationFrame(update);
+    let animId = requestAnimationFrame(update);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("resize", setCanvasSize);
       cancelAnimationFrame(animId);
     };
-  }, [joystick]);
+  }, []); // Run once on mount
 
   return (
-    <div className="relative w-full h-screen bg-gray-900">
+    <div className="relative w-full h-screen bg-gray-900 overflow-hidden">
       <canvas ref={canvasRef} className="w-full h-full border border-white" />
       <div className="absolute bottom-4 right-4 md:hidden">
         <MobileControls
