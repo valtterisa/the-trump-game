@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useRef, useEffect, useState } from "react";
+import nipplejs from "nipplejs";
 
 interface GameObject {
   x: number;
@@ -27,30 +28,42 @@ interface JoystickProps {
 
 const Joystick: React.FC<JoystickProps> = ({ onMove, onStop }) => {
   const joystickRef = useRef<HTMLDivElement | null>(null);
+  const nippleRef = useRef<any>(null);
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    e.preventDefault();
-    if (!joystickRef.current) return;
-    const rect = joystickRef.current.getBoundingClientRect();
-    const touch = e.touches[0];
-    const dx = touch.clientX - (rect.left + rect.width / 2);
-    const dy = touch.clientY - (rect.top + rect.height / 2);
-    onMove(dx, dy);
-  };
+  useEffect(() => {
+    if (joystickRef.current) {
+      nippleRef.current = nipplejs.create({
+        zone: joystickRef.current,
+        mode: "static",
+        position: { left: "50%", top: "50%" },
+        color: "blue",
+        size: 100,
+      });
 
-  const handleTouchEnd = () => {
-    onStop();
-  };
+      nippleRef.current.on("move", (evt, data) => {
+        if (data && data.vector) {
+          onMove(data.vector.x, data.vector.y);
+        }
+      });
+
+      nippleRef.current.on("end", () => {
+        onStop();
+      });
+    }
+
+    return () => {
+      if (nippleRef.current) {
+        nippleRef.current.destroy();
+      }
+    };
+  }, [onMove, onStop]);
 
   return (
     <div
       ref={joystickRef}
-      className="w-16 h-16 bg-gray-700 rounded-full opacity-75"
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
-      {/* Optionally, add a smaller inner knob */}
-    </div>
+      className="w-32 h-32 relative"
+      // No manual touch event handlers needed—nipplejs handles them.
+    ></div>
   );
 };
 
@@ -60,7 +73,11 @@ interface MobileControlsProps {
   onStop: () => void;
 }
 
-const MobileControls: React.FC<MobileControlsProps> = ({ onShoot, onMove, onStop }) => {
+const MobileControls: React.FC<MobileControlsProps> = ({
+  onShoot,
+  onMove,
+  onStop,
+}) => {
   return (
     <div className="absolute bottom-4 right-4 flex flex-col space-y-2 md:hidden">
       <Joystick onMove={onMove} onStop={onStop} />
@@ -83,7 +100,7 @@ const GameCanvas: React.FC = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Canvas sizing (untouched):
+    // Canvas sizing:
     const isMobile = window.innerWidth < 600;
     const canvasWidth = window.innerWidth;
     const canvasHeight = window.innerHeight;
@@ -218,7 +235,7 @@ const GameCanvas: React.FC = () => {
 
     // Spawning timers.
     let lastEnemySpawn = 0;
-    const enemySpawnInterval = 500; // spawn more frequently
+    const enemySpawnInterval = 500;
     let lastPutinSpawn = 0;
     const putinSpawnInterval = 10000;
     let lastElonSpawn = 0;
@@ -289,7 +306,7 @@ const GameCanvas: React.FC = () => {
       }
       // Joystick movement.
       if (joystick.x !== 0 || joystick.y !== 0) {
-        const mag = Math.sqrt(joystick.x * joystick.x + joystick.y * joystick.y);
+        const mag = Math.sqrt(joystick.x ** 2 + joystick.y ** 2);
         if (mag > 0) {
           const normX = joystick.x / mag;
           const normY = joystick.y / mag;
@@ -399,13 +416,17 @@ const GameCanvas: React.FC = () => {
 
     const draw = () => {
       ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-      // Draw Trump (rectangular).
       ctx.drawImage(trumpImg, trump.x, trump.y, trump.width, trump.height);
-      // Draw enemies as round images.
       enemies.forEach((enemy) => {
-        drawCircularImage(ctx, enemy.img, enemy.x, enemy.y, enemy.width, enemy.height);
+        drawCircularImage(
+          ctx,
+          enemy.img,
+          enemy.x,
+          enemy.y,
+          enemy.width,
+          enemy.height
+        );
       });
-      // Draw bullets as yellow circles.
       bullets.forEach((bullet) => {
         drawCircle(
           ctx,
@@ -415,14 +436,26 @@ const GameCanvas: React.FC = () => {
           "yellow"
         );
       });
-      // Draw markers as round images.
       if (putin) {
-        drawCircularImage(ctx, putinImg, putin.x, putin.y, putin.width, putin.height);
+        drawCircularImage(
+          ctx,
+          putinImg,
+          putin.x,
+          putin.y,
+          putin.width,
+          putin.height
+        );
       }
       if (elon) {
-        drawCircularImage(ctx, elonImg, elon.x, elon.y, elon.width, elon.height);
+        drawCircularImage(
+          ctx,
+          elonImg,
+          elon.x,
+          elon.y,
+          elon.width,
+          elon.height
+        );
       }
-      // Draw HUD in bottom left.
       const margin = 20;
       const hudBottom = canvasHeight - margin;
       ctx.fillStyle = "white";
@@ -430,7 +463,11 @@ const GameCanvas: React.FC = () => {
       ctx.textAlign = "start";
       ctx.fillText("Score: " + score, margin, hudBottom - 110);
       ctx.fillText("Health: " + trump.health, margin, hudBottom - 90);
-      ctx.fillText("Weapon Boost: " + (weaponBoost ? "Active" : "Inactive"), margin, hudBottom - 70);
+      ctx.fillText(
+        "Weapon Boost: " + (weaponBoost ? "Active" : "Inactive"),
+        margin,
+        hudBottom - 70
+      );
       const barWidth = 300;
       const barHeight = 25;
       const healthPercent = Math.max(trump.health / 100, 0);
@@ -440,8 +477,11 @@ const GameCanvas: React.FC = () => {
       ctx.fillRect(margin, hudBottom - 60, barWidth * healthPercent, barHeight);
       ctx.strokeStyle = "white";
       ctx.strokeRect(margin, hudBottom - 60, barWidth, barHeight);
-      // Draw control keys at the very bottom.
-      ctx.fillText("Controls: Arrow keys / WASD to move, Space to shoot", margin, hudBottom - 20);
+      ctx.fillText(
+        "Controls: Arrow keys / WASD to move, Space to shoot",
+        margin,
+        hudBottom - 20
+      );
     };
 
     const animId = requestAnimationFrame(update);
@@ -478,7 +518,9 @@ const GameCanvas: React.FC = () => {
       </div>
       {gameOver && (
         <div className="absolute inset-0 flex flex-col justify-center items-center bg-black bg-opacity-80">
-          <h1 className="text-3xl md:text-5xl font-bold text-white mb-4">Game Over</h1>
+          <h1 className="text-3xl md:text-5xl font-bold text-white mb-4">
+            Game Over
+          </h1>
           <video
             src="/videos/ai-trump.mp4"
             autoPlay
